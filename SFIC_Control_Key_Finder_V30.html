@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFIC Control Key Finder - V30</title>
+<style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #e6e6e6; margin: 0; padding: 0; }
+    h1, h2 { color: #000; }
+    .container { background: #4da3ff; padding: 20px; margin: 40px auto; width: 360px; border-radius: 12px; box-shadow: 0 0 8px rgba(0,0,0,0.3); }
+    input { width: 50px; text-align: center; margin: 3px; font-size:16px; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    .error { border: 2px solid red; background: #ffd4d4; }
+    button { background: #ffcc00; border: none; padding: 8px 18px; font-size: 16px; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #ffb700; }
+    .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<h1 id="pageTitle">SFIC Control Key Finder</h1>
+
+<div class="container" id="modeScreen">
+    <h2>Select Mode:</h2>
+    <label><input type="radio" name="mode" value="top"> Top Pin Method</label><br>
+    <label><input type="radio" name="mode" value="full" checked> Full Stack Method</label>
+    <h2>Number of Pins:</h2>
+    <label><input type="radio" name="pins" value="6"> 6 Pin</label>
+    <label><input type="radio" name="pins" value="7" checked> 7 Pin</label><br><br>
+    <button onclick="showPinScreen()">Next</button>
+</div>
+
+<div class="container hidden" id="pinScreen">
+    <h2 id="inputTitle">Enter Pin Data</h2>
+    <table style="margin:auto;">
+        <thead id="tableHead"></thead>
+        <tbody id="pinTable"></tbody>
+    </table><br>
+    <button onclick="goBack()">Back</button>
+    <button onclick="calculate()">Solve</button>
+    <p id="errorMsg" style="color:red; font-weight:bold;"></p>
+</div>
+
+<div class="container hidden" id="resultScreen">
+    <h2>Results</h2>
+    <p id="results"></p>
+    <button onclick="restart()">Start Over</button>
+</div>
+
+<script>
+let numPins = 7;
+let mode = "full";
+
+const topPinMap = {
+    13: 0, 12: 1, 11: 2, 10: 3,
+    9: 4, 8: 5, 7: 6, 6: 7,
+    5: 8, 4: 9
+};
+
+function showPinScreen() {
+    numPins = document.querySelector('input[name="pins"]:checked').value;
+    mode = document.querySelector('input[name="mode"]:checked').value;
+    let head = document.getElementById('tableHead');
+    let table = document.getElementById('pinTable');
+    table.innerHTML = '';
+
+    if(mode === "top") {
+        document.getElementById('pageTitle').innerText = "Top Pin Method";
+        document.getElementById('inputTitle').innerText = "Enter Top Pins";
+        head.innerHTML = "<tr><th>Chamber</th><th>Top Pin</th></tr>";
+        for(let i=1; i<=numPins; i++) {
+            table.innerHTML += `<tr>
+                <td>${i}</td>
+                <td><input type="text" maxlength="2" id="t${i}" oninput="validateTopPin(this, 't${i+1}')"></td>
+            </tr>`;
+        }
+    } else {
+        document.getElementById('pageTitle').innerText = "SFIC Control Key Finder";
+        document.getElementById('inputTitle').innerText = "Enter Pin Data";
+        head.innerHTML = "<tr><th>Chamber</th><th>Bottom</th><th>Master</th><th>Driver</th></tr>";
+        for(let i=1; i<=numPins; i++) {
+            table.innerHTML += `<tr>
+                <td>${i}</td>
+                <td><input type="text" maxlength="1" id="b${i}" oninput="validateInput(this, 'b')"></td>
+                <td><input type="text" maxlength="1" id="m${i}" oninput="validateInput(this, 'm')"></td>
+                <td><input type="text" maxlength="2" id="d${i}" oninput="validateInput(this, 'd', 'b${i+1}')"></td>
+            </tr>`;
+        }
+    }
+    document.getElementById('modeScreen').classList.add('hidden');
+    document.getElementById('pinScreen').classList.remove('hidden');
+}
+
+function validateTopPin(el, nextId) {
+    let v = el.value.replace(/[^0-9]/g, '');
+    if(v === "1") { el.value = v; return; }
+    if(v.length === 1 && parseInt(v) >= 4 && parseInt(v) <= 9) {
+        el.value = v;
+        if(nextId && document.getElementById(nextId)) document.getElementById(nextId).focus();
+        return;
+    }
+    if(v.length === 2 && parseInt(v) >= 10 && parseInt(v) <= 13) {
+        el.value = v;
+        if(nextId && document.getElementById(nextId)) document.getElementById(nextId).focus();
+        return;
+    }
+    if(v.length > 2 || parseInt(v) < 4 || parseInt(v) > 13) v = '';
+    el.value = v;
+}
+
+function validateInput(el, type, nextId) {
+    let v = el.value.replace(/[^0-9]/g, '');
+    if(type==='b') {
+        if(v.length>1) v = v[0];
+        if(parseInt(v)<0 || parseInt(v)>9) v='';
+        el.value = v;
+        if(v!=='') moveToNext(el);
+    }
+    if(type==='m') {
+        if(v.length>1) v = v[0];
+        if(v!=='' && parseInt(v)!==0 && (parseInt(v)<2 || parseInt(v)>9)) v='';
+        el.value = v;
+        if(v!=='') moveToNext(el);
+    }
+    if(type==='d') {
+        if(v.length===1 && v==='1') { el.value = v; return; }
+        if(v.length===1 && (parseInt(v)<2 || parseInt(v)>9)) v='';
+        if(v.length===2 && (parseInt(v)<10 || parseInt(v)>19)) v='';
+        el.value = v;
+        if((v.length===1 && parseInt(v)>=2) || v.length===2) {
+            if(nextId && document.getElementById(nextId)) document.getElementById(nextId).focus();
+        }
+    }
+}
+
+function moveToNext(el) {
+    let inputs = Array.from(document.querySelectorAll('#pinTable input'));
+    let idx = inputs.indexOf(el);
+    if(idx > -1 && idx < inputs.length-1) inputs[idx+1].focus();
+}
+
+function goBack() {
+    document.getElementById('pinScreen').classList.add('hidden');
+    document.getElementById('modeScreen').classList.remove('hidden');
+}
+
+function calculate() {
+    document.getElementById('errorMsg').innerText = '';
+    for(let input of document.querySelectorAll('#pinTable input')) input.classList.remove('error');
+
+    if(mode === "top") {
+        let cuts=[], valid=true;
+        for(let i=1;i<=numPins;i++) {
+            let t=document.getElementById('t'+i);
+            let val=parseInt(t.value);
+            if(t.value==='' || !(val in topPinMap)){t.classList.add('error');valid=false;}
+            else cuts.push(topPinMap[val]);
+        }
+        if(!valid){document.getElementById('errorMsg').innerText='Error: Invalid Top Pin values!';return;}
+        document.getElementById('results').innerText = 'Control Key Cuts: ' + cuts.join('-');
+    } 
+    else {
+        let bottoms=[], masters=[], drivers=[], valid=true, cuts=[];
+        for(let i=1;i<=numPins;i++) {
+            let b=document.getElementById('b'+i), m=document.getElementById('m'+i), d=document.getElementById('d'+i);
+            if(b.value==='' || parseInt(b.value)<0 || parseInt(b.value)>9){b.classList.add('error');valid=false;}
+            if(m.value==='' || (parseInt(m.value)!==0 && (parseInt(m.value)<2 || parseInt(m.value)>9))){m.classList.add('error');valid=false;}
+            if(d.value==='' || (parseInt(d.value)<2 || parseInt(d.value)>19)){d.classList.add('error');valid=false;}
+            bottoms.push(parseInt(b.value)); masters.push(parseInt(m.value)); drivers.push(parseInt(d.value));
+        }
+        if(!valid){document.getElementById('errorMsg').innerText='Please correct highlighted fields!';return;}
+
+        for(let i=0;i<numPins;i++){
+            let cut = (bottoms[i] + masters[i] + drivers[i]) - 10;
+            if(cut<0 || cut>9){
+                document.getElementById('errorMsg').innerText='Error: Impossible control key detected (cut outside 0-9). Please recheck your pin data!';
+                document.getElementById('b'+(i+1)).classList.add('error');
+                document.getElementById('m'+(i+1)).classList.add('error');
+                document.getElementById('d'+(i+1)).classList.add('error');
+                return;
+            }
+            cuts.push(cut);
+        }
+        document.getElementById('results').innerText = 'Control Key Cuts: ' + cuts.join('-');
+    }
+
+    document.getElementById('pinScreen').classList.add('hidden');
+    document.getElementById('resultScreen').classList.remove('hidden');
+}
+
+function restart() {
+    document.getElementById('resultScreen').classList.add('hidden');
+    document.getElementById('modeScreen').classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>
